@@ -47,7 +47,7 @@ MedVault is designed around two user roles:
 - **Patients** use a personal portal to view their health dashboard, organize medical records, follow appointments and control sharing access.
 - **Doctors** use a clinical console to request patient access and work with the selected patient's clinical information, including prescriptions and appointments.
 
-The patient-facing health summary connects to a separately hosted AI service. The Node/Express backend exposes AI proxy routes and coordinates requests to that service.
+The patient-facing health summary connects directly to a separately hosted AI service. An alternate backend configuration also includes AI proxy routes, but those routes are not mounted by the default Express entry point.
 
 ## Features
 
@@ -85,7 +85,7 @@ AI output can be incomplete or incorrect. It must not be treated as clinical adv
 
 ## Screenshots
 
-The screenshots below are stored in the repository under `screenshots/`. Replace or add images there as the UI evolves.
+Add the six supplied application screenshots to a root-level `screenshots/` folder using the filenames referenced below. The README image links will display once those files are committed. Blur any personal information in the screenshots before uploading them.
 
 ### Patient experience
 
@@ -114,8 +114,8 @@ The screenshots below are stored in the repository under `screenshots/`. Replace
 | Database / ODM | MongoDB, Mongoose |
 | Authentication | JSON Web Tokens, bcryptjs |
 | File handling | Multer |
-| API integration | Axios on the frontend; fetch-based AI service proxy in the backend |
-| AI integration | Separately hosted AI service (default backend URL: `http://127.0.0.1:8000`) |
+| API integration | Axios and Fetch |
+| AI integration | Separately hosted AI service (default frontend URL: `http://localhost:8000`) |
 
 ## Architecture
 
@@ -155,7 +155,8 @@ MedVault/
 │   │   ├── models/          # Mongoose models
 │   │   ├── routes/          # Auth, doctor, records, sharing, AI, etc.
 │   │   ├── utils/           # Tokens, encryption helpers, async handler
-│   │   ├── app.js
+│   │   ├── app.js               # Default Express app
+│   │   ├── app-MSI.js           # Alternate app mounting doctor / AI routes
 │   │   └── server.js
 │   ├── uploads/
 │   ├── .env.example
@@ -271,13 +272,13 @@ Vite prints the local development URL in the terminal (normally **http://localho
 
 ### 7. AI service (optional, for AI features)
 
-The backend AI routes proxy requests to a separate service. By default, the backend expects it at:
+The AI health-summary screen calls the separately hosted AI service directly. By default, the frontend expects it at:
 
 ```
-http://127.0.0.1:8000
+http://localhost:8000
 ```
 
-Set `AI_SERVICE_URL` in `backend/.env` if your AI service runs elsewhere. The AI service has its own setup and dependencies; it is not included as a Node dependency in this repository. The patient AI screen calls endpoints such as `/health`, `/api/v2/pdf/upload`, `/api/v2/insights/analyse` and `/api/v2/chatbot/ask` on that service.
+Set `VITE_AI_API_URL` in the root `.env` file if your AI service runs elsewhere. The AI service has its own setup and dependencies; it is not included as a Node dependency in this repository. The patient AI screen calls endpoints such as `/health`, `/api/v2/pdf/upload`, `/api/v2/insights/analyse` and `/api/v2/chatbot/ask` on that service. An optional backend proxy module is also present in the alternate backend app configuration.
 
 ## Environment Configuration
 
@@ -289,7 +290,7 @@ Set `AI_SERVICE_URL` in `backend/.env` if your AI service runs elsewhere. The AI
 | `MONGODB_URI` | `backend/.env` | MongoDB connection string |
 | `JWT_SECRET` | `backend/.env` | Secret used to sign authentication tokens |
 | `CLIENT_URL` | `backend/.env` | Configured frontend origin for CORS |
-| `AI_SERVICE_URL` | `backend/.env` | Base URL for the separately running AI service (defaults to `http://127.0.0.1:8000`) |
+| `AI_SERVICE_URL` | Optional backend configuration | Base URL used by the alternate backend AI proxy module |
 
 ## Implementation and Entry-Point Note
 
