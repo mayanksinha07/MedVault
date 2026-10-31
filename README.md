@@ -17,9 +17,11 @@
   <img src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" />
 </p>
 
-MedVault is a healthcare management web application with separate patient and doctor experiences. Patients can manage medical records, appointments and sharing permissions, while doctors have a clinical workspace for patient access and care workflows. An integrated AI service supports report analysis, health summaries and report-related chat.
+MedVault is an actively developed healthcare management project. The repository contains a patient-facing React application, a separate doctor portal implementation, an Express/MongoDB API, and a frontend integration with a separately hosted AI service.
 
-> **Project status:** This repository contains an actively developed application. Some screens use demonstration or sample health values. AI-generated information is intended as informational assistance, not a medical diagnosis or substitute for professional care.
+The patient portal is wired through the default application entry point. Doctor portal and additional doctor/AI API route wiring are present in alternate `-MSI` entry-point files; see [Implementation and entry-point note](#implementation-and-entry-point-note) before running those workflows.
+
+> **Project status:** Some screens use demonstration or sample health values. AI-generated information is informational assistance only—not a medical diagnosis or a substitute for professional care.
 
 ---
 
@@ -59,22 +61,25 @@ The patient-facing health summary connects to a separately hosted AI service. Th
 - Patient profile.
 - AI health summary, report insights and report-related conversational assistant.
 
-### Doctor portal
+### Doctor portal implementation
 
-- Separate doctor registration and sign-in experience.
+- Separate doctor registration and sign-in screens.
 - Doctor workspace / clinical dashboard.
 - Patient lookup and access-request workflow.
-- Centralized active-patient-session concept across doctor workflows.
+- Centralized active-patient-session context across doctor workflows.
 - Prescription and appointment workflows.
 - Patient-related reports and profile views.
 
+These screens and API modules are present in the repository. They are wired by the alternate `src/App-MSI.tsx` and `backend/src/app-MSI.js` files rather than the default entry points; see the implementation note below.
+
 ### AI-assisted report experience
 
-- Backend proxy integration with the AI service.
+- Patient UI retrieves medical records from the Express API.
+- The browser sends selected PDF reports to the separately hosted AI service.
 - Report analysis and summary workflows.
 - Structured insights and alerts.
 - Chat interface for questions about a selected report.
-- Basic fallback responses for certain upstream AI-provider quota or configuration errors.
+- An AI proxy route module with fallback handling for certain upstream errors is also present under the alternate backend entry point.
 
 AI output can be incomplete or incorrect. It must not be treated as clinical advice or used to make healthcare decisions without a qualified professional.
 
@@ -114,25 +119,27 @@ The screenshots below are stored in the repository under `screenshots/`. Replace
 
 ## Architecture
 
-At a high level, the application is split into a React client, an Express API and a separately running AI service.
+At a high level, the patient client communicates with the Express API for account and medical-record operations. The AI health-summary screen calls the separately hosted AI service directly from the browser. The alternate backend configuration also contains doctor and AI route modules.
 
 ```text
-                 ┌─────────────────────────┐
-                 │       React Client      │
-                 │   Patient / Doctor UI   │
-                 └────────────┬────────────┘
-                              │ HTTP / REST
-                 ┌────────────▼────────────┐
-                 │      Express API        │
-                 │ Auth, records, sharing, │
-                 │ appointments, doctor UI │
-                 └───────┬─────────┬───────┘
-                         │         │
-                 ┌───────▼────┐  ┌─▼────────────────┐
-                 │  MongoDB   │  │    AI Service    │
-                 │ Mongoose   │  │ Report insights  │
-                 └────────────┘  │ and report chat  │
-                                 └──────────────────┘
+            ┌──────────────────────────────┐
+            │          React UI            │
+            │      Patient / Doctor        │
+            └──────────────┬───────────────┘
+                           │
+               ┌───────────▼────────────┐
+               │    Express API        │
+               │ Auth, records, sharing│
+               │ appointments, etc.    │
+               └───────────┬───────────┘
+                           │
+                    ┌──────▼─────┐
+                    │  MongoDB   │
+                    │ Mongoose   │
+                    └────────────┘
+
+        React AI screen ───────► Separate AI Service
+                                (PDF analysis / chat)
 ```
 
 ## Repository Structure
@@ -156,7 +163,11 @@ MedVault/
 ├── public/                  # Static assets and MedVault logo
 ├── src/
 │   ├── Dashboard/           # Patient and doctor dashboard screens
-│   ├── App.tsx              # Client-side routes
+│   ├── App.tsx              # Default patient-side routes
+│   ├── App-MSI.tsx          # Alternate routes including doctor portal
+│   ├── DoctorAuth.tsx       # Doctor sign-in / registration
+│   ├── DoctorDashboard.tsx  # Doctor workspace
+│   ├── doctor-session/      # Active patient session context
 │   ├── SignIn.tsx
 │   └── Signup.tsx
 ├── .env.example
@@ -266,7 +277,7 @@ The backend AI routes proxy requests to a separate service. By default, the back
 http://127.0.0.1:8000
 ```
 
-Set `AI_SERVICE_URL` in `backend/.env` if your AI service runs elsewhere. The AI service has its own setup and dependencies; it is not included as a Node dependency in this repository.
+Set `AI_SERVICE_URL` in `backend/.env` if your AI service runs elsewhere. The AI service has its own setup and dependencies; it is not included as a Node dependency in this repository. The patient AI screen calls endpoints such as `/health`, `/api/v2/pdf/upload`, `/api/v2/insights/analyse` and `/api/v2/chatbot/ask` on that service.
 
 ## Environment Configuration
 
@@ -280,9 +291,18 @@ Set `AI_SERVICE_URL` in `backend/.env` if your AI service runs elsewhere. The AI
 | `CLIENT_URL` | `backend/.env` | Configured frontend origin for CORS |
 | `AI_SERVICE_URL` | `backend/.env` | Base URL for the separately running AI service (defaults to `http://127.0.0.1:8000`) |
 
+## Implementation and Entry-Point Note
+
+There are two parallel sets of entry-point files in the current repository:
+
+- The default root `src/main.tsx` imports `src/App.tsx`, and `backend/src/server.js` imports `backend/src/app.js`. These are the entry points used by the standard `npm run dev` and `npm run dev:backend` scripts.
+- The alternate `src/App-MSI.tsx` contains the doctor routes, and `backend/src/app-MSI.js` mounts `/doctor` and `/ai` in addition to the patient API routes. The standard scripts do not currently select these alternate files automatically.
+
+Consequently, the doctor portal is present in the repository, but the default entry points need to be aligned with the alternate `-MSI` implementations to run the complete doctor workflow. Review this wiring before presenting the entire patient-and-doctor experience as available from a fresh default checkout.
+
 ## API Overview
 
-The Express application currently mounts these route groups:
+The default Express application mounts these route groups:
 
 | Base path | Purpose |
 |---|---|
@@ -293,7 +313,7 @@ The Express application currently mounts these route groups:
 | `/sharing` | Create, list and revoke sharing sessions |
 | `/dashboard` | Patient dashboard summary |
 
-Doctor-specific workflows are implemented in the doctor route module. AI proxy routes are implemented in `backend/src/routes/aiRoutes.js`; consult that file for the supported AI endpoints and request payloads.
+The alternate `backend/src/app-MSI.js` additionally mounts `/doctor` to `doctorRoutes.js` and `/ai` to `aiRoutes.js`. The patient AI screen currently uses `VITE_AI_API_URL` to call the separate AI service directly; the AI proxy module is not mounted by the default `app.js`.
 
 Authenticated route groups use a bearer token:
 
